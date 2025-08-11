@@ -1,0 +1,2946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhD-Level Reasoning Model Test Suite: OpenAI o3 vs GPT-5</title>
+    
+    <!-- Chart.js with proper loading order and fallbacks -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" 
+            onerror="console.error('Failed to load Chart.js from primary CDN'); this.onerror=null; this.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js';"></script>
+    
+    <!-- Chart.js Date Adapter (only load after Chart.js is available) -->
+    <script>
+        // Load adapter only after Chart.js is confirmed loaded
+        function loadChartAdapter() {
+            if (typeof Chart !== 'undefined') {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js';
+                script.onerror = function() {
+                    console.warn('Chart.js date adapter failed to load, using fallback');
+                };
+                document.head.appendChild(script);
+            } else {
+                setTimeout(loadChartAdapter, 100);
+            }
+        }
+        window.addEventListener('load', loadChartAdapter);
+    </script>
+    
+    <!-- MathJax for mathematical notation -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: {
+                fontCache: 'global'
+            },
+            startup: {
+                ready: function () {
+                    MathJax.startup.defaultReady();
+                    console.log('MathJax loaded successfully');
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" 
+            onerror="console.warn('MathJax failed to load from CDN');"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --neutral-50: #f9fafb;
+            --neutral-100: #f3f4f6;
+            --neutral-200: #e5e7eb;
+            --neutral-300: #d1d5db;
+            --neutral-600: #4b5563;
+            --neutral-700: #374151;
+            --neutral-800: #1f2937;
+            --neutral-900: #111827;
+            --gradient-primary: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+            --gradient-accent: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-emerald) 100%);
+            --shadow-subtle: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-medium: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-large: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--neutral-700);
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            overflow-x: hidden;
+        }
+
+        /* Table of Contents */
+        .toc {
+            position: fixed;
+            top: 50%;
+            left: 2rem;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-large);
+            z-index: 1000;
+            max-width: 200px;
+            transition: opacity 0.3s ease;
+        }
+
+        .toc h3 {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .toc ul {
+            list-style: none;
+        }
+
+        .toc li {
+            margin-bottom: 0.5rem;
+        }
+
+        .toc a {
+            color: var(--neutral-600);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: color 0.3s ease;
+            display: block;
+            padding: 0.25rem 0;
+        }
+
+        .toc a:hover {
+            color: var(--secondary-blue);
+        }
+
+        .toc a.active {
+            color: var(--secondary-blue);
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            margin-left: 280px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 4rem 0 6rem;
+            background: var(--gradient-primary);
+            color: white;
+            margin: -2rem -2rem 4rem -2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:rgba(255,255,255,0.1)"/><stop offset="100%" style="stop-color:rgba(255,255,255,0)"/></linearGradient></defs><path d="M0,300 Q250,200 500,250 T1000,200 L1000,0 L0,0 Z" fill="url(%23grad)"/></svg>') no-repeat center center;
+            background-size: cover;
+            opacity: 0.1;
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            line-height: 1.1;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .header .meta {
+            margin-top: 2rem;
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+
+        /* Sections */
+        section {
+            margin-bottom: 6rem;
+            scroll-margin-top: 2rem;
+        }
+
+        h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        h2::after {
+            content: '';
+            position: absolute;
+            bottom: -0.5rem;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background: var(--gradient-accent);
+            border-radius: 2px;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--neutral-800);
+            margin-bottom: 1rem;
+            margin-top: 2rem;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-medium);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-large);
+        }
+
+        /* Executive Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .score-card {
+            background: var(--gradient-primary);
+            color: white;
+            text-align: center;
+            padding: 3rem 2rem;
+            border-radius: 1rem;
+            box-shadow: var(--shadow-large);
+        }
+
+        .score-card h3 {
+            color: white;
+            font-size: 1.125rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+
+        .final-scores {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        .model-score {
+            text-align: center;
+        }
+
+        .model-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .score {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--accent-cyan);
+        }
+
+        .winner-badge {
+            background: var(--accent-emerald);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 1rem;
+            display: inline-block;
+        }
+
+        /* Test Results */
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .test-card {
+            background: white;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: var(--shadow-medium);
+            transition: transform 0.3s ease;
+        }
+
+        .test-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .test-header {
+            padding: 2rem;
+            background: var(--gradient-accent);
+            color: white;
+            text-align: center;
+        }
+
+        .test-number {
+            font-size: 1rem;
+            font-weight: 600;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+
+        .test-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .test-category {
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+
+        .test-content {
+            padding: 2rem;
+        }
+
+        .test-scores {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .model-result {
+            text-align: center;
+            flex: 1;
+        }
+
+        .model-result h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--neutral-700);
+        }
+
+        .test-score {
+            font-size: 2rem;
+            font-weight: 800;
+        }
+
+        .o3-score {
+            color: var(--accent-amber);
+        }
+
+        .gpt5-score {
+            color: var(--accent-emerald);
+        }
+
+        /* Detailed Analysis */
+        .analysis-section {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-medium);
+        }
+
+        .prompt-section {
+            background: var(--neutral-50);
+            border-left: 4px solid var(--secondary-blue);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 0.5rem 0.5rem 0;
+            font-style: italic;
+        }
+
+        .response-section {
+            margin: 2rem 0;
+        }
+
+        .response-header {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem 0.5rem 0 0;
+            font-weight: 600;
+        }
+
+        .response-content {
+            background: var(--neutral-50);
+            padding: 1.5rem;
+            border-radius: 0 0 0.5rem 0.5rem;
+            border: 1px solid var(--neutral-200);
+            border-top: none;
+        }
+
+        /* Progress Bars */
+        .progress-container {
+            margin: 1rem 0;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--neutral-200);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--gradient-accent);
+            transition: width 0.8s ease;
+        }
+
+        /* Charts */
+        .chart-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: var(--shadow-medium);
+            margin-bottom: 2rem;
+        }
+
+        .chart-title {
+            text-align: center;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--primary-blue);
+            margin-bottom: 2rem;
+        }
+
+        /* Comparison Matrix */
+        .comparison-matrix {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .model-strengths {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: var(--shadow-medium);
+        }
+
+        .strengths-header {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            font-size: 1.125rem;
+        }
+
+        .o3-header {
+            background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+            color: white;
+        }
+
+        .gpt5-header {
+            background: var(--gradient-accent);
+            color: white;
+        }
+
+        .strength-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background: var(--neutral-50);
+            border-radius: 0.5rem;
+        }
+
+        .strength-icon {
+            width: 2rem;
+            height: 2rem;
+            margin-right: 1rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
+            font-size: 0.875rem;
+        }
+
+        /* Star Ratings */
+        .star-rating {
+            display: flex;
+            gap: 0.25rem;
+            margin: 0.5rem 0;
+        }
+
+        .star {
+            color: var(--accent-amber);
+            font-size: 1.25rem;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.8s ease forwards;
+        }
+
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .toc {
+                display: none;
+            }
+            
+            .container {
+                margin-left: 0;
+            }
+            
+            .summary-grid,
+            .comparison-matrix {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .test-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .final-scores {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+
+        /* Table Styles */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            background: white;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: var(--shadow-medium);
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--neutral-200);
+        }
+
+        .data-table th {
+            background: var(--gradient-primary);
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.875rem;
+        }
+
+        .data-table tr:nth-child(even) {
+            background: var(--neutral-50);
+        }
+
+        .data-table tr:hover {
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        /* Code Blocks */
+        .code-block {
+            background: var(--neutral-900);
+            color: #e5e7eb;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        /* Enhanced Mathematical Notation */
+        .math-block {
+            background: var(--neutral-50);
+            border: 1px solid var(--neutral-200);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            overflow-x: auto;
+        }
+
+        .math-inline {
+            background: rgba(59, 130, 246, 0.1);
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-family: 'Computer Modern', serif;
+        }
+
+        /* Expandable Sections */
+        .expandable {
+            border: 1px solid var(--neutral-200);
+            border-radius: 0.75rem;
+            margin: 1.5rem 0;
+            overflow: hidden;
+            box-shadow: var(--shadow-subtle);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .expandable:hover {
+            box-shadow: var(--shadow-medium);
+        }
+
+        .expandable summary {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 1.25rem 1.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            list-style: none;
+            transition: background 0.3s ease;
+        }
+
+        .expandable summary:hover {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        }
+
+        .expandable summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .expandable summary::after {
+            content: '▼';
+            font-size: 0.875rem;
+            transition: transform 0.3s ease;
+        }
+
+        .expandable[open] summary::after {
+            transform: rotate(180deg);
+        }
+
+        .expandable-content {
+            padding: 2rem;
+            background: white;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Model Response Styling */
+        .model-response {
+            background: white;
+            border-radius: 1rem;
+            margin: 1.5rem 0;
+            overflow: hidden;
+            box-shadow: var(--shadow-medium);
+        }
+
+        .model-response-header {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .model-response-header.o3-header {
+            background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+        }
+
+        .model-response-header.gpt5-header {
+            background: var(--gradient-accent);
+        }
+
+        .model-icon {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .response-body {
+            padding: 2rem;
+            background: white;
+        }
+
+        /* Enhanced Tooltips */
+        .tooltip {
+            position: relative;
+            cursor: help;
+            border-bottom: 1px dotted var(--secondary-blue);
+        }
+
+        .tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--neutral-900);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            z-index: 1000;
+            opacity: 0;
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        .tooltip:hover::before {
+            content: '';
+            position: absolute;
+            bottom: calc(100% - 5px);
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: var(--neutral-900);
+            z-index: 1000;
+        }
+
+        /* Scoring Tables Enhancement */
+        .scoring-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            background: white;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: var(--shadow-medium);
+        }
+
+        .scoring-table th,
+        .scoring-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--neutral-200);
+            font-size: 0.95rem;
+        }
+
+        .scoring-table th {
+            background: var(--gradient-primary);
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.85rem;
+        }
+
+        .scoring-table .criterion-row {
+            background: var(--neutral-50);
+            font-weight: 600;
+        }
+
+        .scoring-table .sub-criterion {
+            padding-left: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .scoring-table .score-cell {
+            text-align: center;
+            font-weight: 600;
+            font-family: monospace;
+        }
+
+        .scoring-table .o3-score {
+            color: var(--accent-amber);
+        }
+
+        .scoring-table .gpt5-score {
+            color: var(--accent-emerald);
+        }
+
+        .scoring-table .delta-positive {
+            color: var(--accent-emerald);
+            font-weight: 700;
+        }
+
+        .scoring-table .delta-negative {
+            color: var(--accent-amber);
+            font-weight: 700;
+        }
+
+        .scoring-table .total-row {
+            background: var(--primary-blue);
+            color: white;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        /* Mathematical Formula Containers */
+        .formula-container {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-left: 4px solid var(--secondary-blue);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+
+        .formula-title {
+            font-weight: 600;
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+    </style>
+</head>
+<body>
+    <!-- Table of Contents -->
+    <nav class="toc">
+        <h3>Contents</h3>
+        <ul>
+            <li><a href="#executive-summary" class="toc-link">Executive Summary</a></li>
+            <li><a href="#test-1" class="toc-link">Test 1: Hanging Paradox</a></li>
+            <li><a href="#test-2" class="toc-link">Test 2: Quantum Decision</a></li>
+            <li><a href="#test-3" class="toc-link">Test 3: Hypercomputation</a></li>
+            <li><a href="#analysis" class="toc-link">Comparative Analysis</a></li>
+            <li><a href="#conclusions" class="toc-link">Conclusions</a></li>
+        </ul>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <h1>PhD-Level Reasoning Test Suite</h1>
+            <p>Comprehensive Analysis: OpenAI o3 vs GPT-5</p>
+            <div class="meta">
+                <strong>Test Environment:</strong> Zen MCP Framework | <strong>Date:</strong> August 11, 2025<br>
+                <strong>Designed by:</strong> Claude Opus 4.1 | <strong>Categories:</strong> Game Theory, Quantum Cognition, Hypercomputation
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Executive Summary -->
+        <section id="executive-summary">
+            <h2>Executive Summary</h2>
+            
+            <div class="summary-grid">
+                <div class="card fade-in-up">
+                    <h3>Test Overview</h3>
+                    <p>Both models demonstrated exceptional PhD-level reasoning capabilities across three increasingly complex theoretical domains. GPT-5 achieved a near-perfect performance while o3 showed consistent high-quality responses with particular strength in mathematical elegance and practical applications.</p>
+                    
+                    <div class="progress-container">
+                        <div class="progress-label">
+                            <span>Overall Performance Comparison</span>
+                        </div>
+                        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                            <div style="flex: 1;">
+                                <div class="progress-label">
+                                    <span>o3</span>
+                                    <span>179/195 (91.8%)</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 91.8%; background: linear-gradient(90deg, #f59e0b, #f97316);"></div>
+                                </div>
+                            </div>
+                            <div style="flex: 1;">
+                                <div class="progress-label">
+                                    <span>GPT-5</span>
+                                    <span>192/195 (98.5%)</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 98.5%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="score-card fade-in-up stagger-1">
+                    <h3>Final Results</h3>
+                    <div class="final-scores">
+                        <div class="model-score">
+                            <div class="model-name">o3</div>
+                            <div class="score o3-score">179</div>
+                            <div style="font-size: 0.875rem; opacity: 0.8;">out of 195</div>
+                        </div>
+                        <div style="font-size: 2rem; opacity: 0.6;">vs</div>
+                        <div class="model-score">
+                            <div class="model-name">GPT-5</div>
+                            <div class="score gpt5-score">192</div>
+                            <div style="font-size: 0.875rem; opacity: 0.8;">out of 195</div>
+                        </div>
+                    </div>
+                    <div class="winner-badge">🏆 GPT-5 WINS 3-0</div>
+                </div>
+            </div>
+
+            <!-- Chart: Overall Performance -->
+            <div class="chart-container fade-in-up stagger-2">
+                <div class="chart-title">Test Performance Breakdown</div>
+                <canvas id="overallChart" width="400" height="200"></canvas>
+            </div>
+        </section>
+
+        <!-- Individual Test Results -->
+        <section id="test-results">
+            <h2>Individual Test Results</h2>
+            
+            <div class="test-grid">
+                <div class="test-card fade-in-up" id="test-1">
+                    <div class="test-header">
+                        <div class="test-number">TEST 1</div>
+                        <div class="test-title">Unexpected Hanging Paradox</div>
+                        <div class="test-category">Epistemic Modal Logic & Game Theory</div>
+                    </div>
+                    <div class="test-content">
+                        <div class="test-scores">
+                            <div class="model-result">
+                                <h4>o3</h4>
+                                <div class="test-score o3-score">59/65</div>
+                            </div>
+                            <div class="model-result">
+                                <h4>GPT-5</h4>
+                                <div class="test-score gpt5-score">65/65</div>
+                            </div>
+                        </div>
+                        <p><strong>Winner:</strong> GPT-5 (Perfect Score)</p>
+                        <p><strong>Key Differentiator:</strong> GPT-5's explicit temporal logic framework and "illicit cross-time closure" insight provided superior formalization.</p>
+                    </div>
+                </div>
+
+                <div class="test-card fade-in-up stagger-1" id="test-2">
+                    <div class="test-header">
+                        <div class="test-number">TEST 2</div>
+                        <div class="test-title">Quantum Decision Theory</div>
+                        <div class="test-category">Non-Classical Probability Models</div>
+                    </div>
+                    <div class="test-content">
+                        <div class="test-scores">
+                            <div class="model-result">
+                                <h4>o3</h4>
+                                <div class="test-score o3-score">61/65</div>
+                            </div>
+                            <div class="model-result">
+                                <h4>GPT-5</h4>
+                                <div class="test-score gpt5-score">62/65</div>
+                            </div>
+                        </div>
+                        <p><strong>Winner:</strong> GPT-5 (Narrow Victory)</p>
+                        <p><strong>Key Differentiator:</strong> GPT-5's three decoherence mechanisms vs o3's two, plus better cognitive science integration.</p>
+                    </div>
+                </div>
+
+                <div class="test-card fade-in-up stagger-2" id="test-3">
+                    <div class="test-header">
+                        <div class="test-number">TEST 3</div>
+                        <div class="test-title">Hypercomputation</div>
+                        <div class="test-category">Transfinite Decision Theory</div>
+                    </div>
+                    <div class="test-content">
+                        <div class="test-scores">
+                            <div class="model-result">
+                                <h4>o3</h4>
+                                <div class="test-score o3-score">59/65</div>
+                            </div>
+                            <div class="model-result">
+                                <h4>GPT-5</h4>
+                                <div class="test-score gpt5-score">65/65</div>
+                            </div>
+                        </div>
+                        <p><strong>Winner:</strong> GPT-5 (Perfect Score)</p>
+                        <p><strong>Key Differentiator:</strong> GPT-5's ω₁^L construction and resource-constraint modeling showed superior model-theoretic awareness.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Detailed Test Analysis -->
+        <section id="detailed-analysis">
+            <h2>Detailed Test Analysis</h2>
+
+            <!-- Test 1: Comprehensive Analysis -->
+            <div class="analysis-section fade-in-up">
+                <h3>Test 1: Unexpected Hanging Paradox</h3>
+                <p><strong>Challenge Level:</strong> Basic | <strong>Domain:</strong> Epistemic Modal Logic & Game Theory</p>
+                
+                <div class="prompt-section">
+                    <strong>Complete Test Prompt:</strong><br>
+                    In the Unexpected Hanging Paradox variant: A judge tells a prisoner he will be executed at noon on a weekday next week, but the execution will be a surprise (he won't know it's coming that morning). The prisoner reasons: 'It can't be Friday, because if Thursday noon passes, I'd know it must be Friday. By similar logic, it can't be Thursday...' and concludes he cannot be executed. Yet he is surprised when executed on Wednesday.<br><br>
+                    
+                    <strong>Task:</strong> Analyze this paradox using epistemic modal logic. What's the flaw in the prisoner's reasoning? Formalize the concepts of 'knowledge' and 'surprise' that makes the judge's statement both coherent and executable.
+                </div>
+
+                <!-- Complete Model Responses -->
+                <details class="expandable">
+                    <summary>Complete o3 Response - Epistemic Model Evolution Framework</summary>
+                    <div class="expandable-content">
+                        <div class="model-response">
+                            <div class="model-response-header o3-header">
+                                <div class="model-icon">o3</div>
+                                <div>OpenAI o3 - Dynamic Epistemic Logic Analysis</div>
+                            </div>
+                            <div class="response-body">
+                                <h4>Formal Framework</h4>
+                                <div class="formula-container">
+                                    <div class="formula-title">Epistemic Operators</div>
+                                    <div class="math-block">
+                                        $K_n \varphi = \text{"On the morning of day } n \text{ the prisoner knows } \varphi\text{"}$<br>
+                                        $E = \text{"One single execution takes place next week"}$<br>
+                                        $D = \{Mon, Tue, Wed, Thu, Fri\}; \quad d^* \in D \text{ is the unique execution day}$<br>
+                                        $\text{Surprise requirement: } \neg K_n(d^*=n) \text{ for the actual day } n$
+                                    </div>
+                                </div>
+
+                                <h4>Judge's Promise Formalization</h4>
+                                <div class="math-block">
+                                    $P := E \land \bigvee_{d \in D}[(d^*=d) \land \neg K_d(d^*=d)]$
+                                </div>
+                                <p><strong>Translation:</strong> "Exactly one day is the execution and, on that day's morning, the prisoner will not know it is today."</p>
+
+                                <h4>Epistemic Model Evolution</h4>
+                                <ul>
+                                    <li><strong>Initial state $(M_0)$:</strong> Five possible worlds, one for each execution day</li>
+                                    <li><strong>Morning updates:</strong> Public announcement of "not executed before $n$"</li>
+                                    <li><strong>Model progression:</strong> $(M_0 \mid \text{not-before-Mon}) \mid \ldots \mid (\text{not-before-}n)$</li>
+                                </ul>
+
+                                <h4>Core Insight: Where Backward Induction Fails</h4>
+                                <p>The prisoner's reasoning requires:</p>
+                                <div class="math-block">
+                                    $K_4((\text{only Friday remains}) \to K_4(d^*=\text{Fri}))$
+                                </div>
+                                <p>This is a <strong class="tooltip" data-tooltip="Knowledge about what will be known in the future">second-order knowledge statement</strong> about future knowledge. The critical flaw:</p>
+                                <ul>
+                                    <li>S5 knowledge is factive and introspective about <em>current</em> knowledge</li>
+                                    <li>It does <strong>NOT</strong> guarantee knowledge preservation under future updates</li>
+                                    <li>Dynamic epistemic logic shows knowledge is not preserved under arbitrary public announcements</li>
+                                </ul>
+
+                                <h4>Resolution</h4>
+                                <p>Choose Wednesday as $d^*$. Morning evaluations:</p>
+                                <ul>
+                                    <li><strong>Monday:</strong> $\{Mon,Tue,Wed,Thu,Fri\}$ possible $\Rightarrow \neg K_1(d^*=Mon)$ ✓</li>
+                                    <li><strong>Tuesday:</strong> $\{Tue,Wed,Thu,Fri\}$ possible $\Rightarrow \neg K_2(d^*=Tue)$ ✓</li>
+                                    <li><strong>Wednesday:</strong> $\{Wed,Thu,Fri\}$ possible $\Rightarrow \neg K_3(d^*=Wed)$ ✓</li>
+                                </ul>
+                                
+                                <p>The judge can execute on Wednesday with genuine surprise.</p>
+
+                                <h4>Key Takeaways</h4>
+                                <ol>
+                                    <li>Surprise = "not known that morning" $(\neg K_n(d^*=n))$</li>
+                                    <li>Backward induction illegitimately assumes second-order knowledge about future states</li>
+                                    <li>Dynamic epistemic logic cleanly separates current from hypothetical post-announcement knowledge</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="expandable">
+                    <summary>Complete GPT-5 Response - Temporal Logic Framework</summary>
+                    <div class="expandable-content">
+                        <div class="model-response">
+                            <div class="model-response-header gpt5-header">
+                                <div class="model-icon">G5</div>
+                                <div>GPT-5 - Epistemic-Temporal Analysis</div>
+                            </div>
+                            <div class="response-body">
+                                <h4>Formal Framework</h4>
+                                <div class="formula-container">
+                                    <div class="formula-title">Time-Indexed Operators</div>
+                                    <div class="math-block">
+                                        $K_t \varphi = \text{"at time } t \text{ the prisoner knows } \varphi\text{"}$<br>
+                                        $D = \{Mon, Tue, Wed, Thu, Fri\}$<br>
+                                        $\text{Times: } t_0 \text{ (before week), } m(d) \text{ (morning of day } d\text{), } noon(d)$<br>
+                                        $\text{Surprise: } Surprise(d) := \neg K_{m(d)} E_d$
+                                    </div>
+                                </div>
+
+                                <h4>Judge's Announcement</h4>
+                                <div class="math-block">
+                                    $J := ExactlyOne(E_{Mon},\ldots,E_{Fri}) \land \bigvee_d (E_d \land \neg K_{m(d)} E_d)$
+                                </div>
+
+                                <h4>Epistemic-Temporal Model</h4>
+                                <ul>
+                                    <li><strong>Worlds:</strong> One per day with $E_d$ true at world $d$</li>
+                                    <li><strong>Initial state $(t_0)$:</strong> All days epistemically possible</li>
+                                    <li><strong>Morning updates:</strong> At $m(d)$, prisoner knows $\neg E_{d'}$ for all $d' < d$</li>
+                                </ul>
+
+                                <h4>Dynamic Analysis</h4>
+                                <p>After announcement $J$ at $t_0$:</p>
+                                <ul>
+                                    <li><strong>Friday eliminated:</strong> $K_{m(Fri)} E_{Fri}$ would hold $\Rightarrow Surprise(Fri)$ false</li>
+                                    <li><strong>Thursday eliminated:</strong> With Friday gone, $K_{m(Thu)} E_{Thu}$ would hold</li>
+                                    <li><strong>Wednesday survives:</strong> At $m(Wed)$, $\{Wed, Thu\}$ remain possible $\Rightarrow \neg K_{m(Wed)} E_{Wed}$</li>
+                                </ul>
+
+                                <h4>The Prisoner's Modal Flaw</h4>
+                                <p>The prisoner commits an <strong class="tooltip" data-tooltip="Incorrectly assuming knowledge persists across different time points">illicit cross-time closure</strong>:</p>
+                                <ul>
+                                    <li>Assumes: $K_{t_0}(\varphi \to K_{m(d)} \psi)$ implies $K_{t_0}(\varphi \to \psi)$</li>
+                                    <li>Treats $J$ as persistent knowledge reusable at all future times</li>
+                                    <li>Ignores that statements about future knowledge aren't stable under updates</li>
+                                </ul>
+
+                                <h4>Critical Distinctions</h4>
+                                <ol>
+                                    <li><strong>Knowledge time-indexing:</strong> $K_t$ vs $K_s$ for different times</li>
+                                    <li><strong>No cross-time axiom:</strong> $K_t \varphi$ doesn't imply $K_s \varphi$ for $s > t$</li>
+                                    <li><strong>Dynamic instability:</strong> Truth of $\neg K_{m(d)} E_d$ can flip with observations</li>
+                                </ol>
+
+                                <h4>Resolution Coherence</h4>
+                                <ul>
+                                    <li>$J$ evaluated at $t_0$ requires existence of executable surprise day</li>
+                                    <li>Wednesday execution: $Surprise(Wed)$ true at $m(Wed)$ (Wed/Thu both live)</li>
+                                    <li>No contradiction: $J$ need not remain true at all times/counterfactuals</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Complete Scoring Table -->
+                <h4>Detailed Scoring Analysis</h4>
+                <table class="scoring-table">
+                    <thead>
+                        <tr>
+                            <th>Evaluation Criteria</th>
+                            <th>Max Points</th>
+                            <th>o3 Score</th>
+                            <th>GPT-5 Score</th>
+                            <th>Analysis</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="criterion-row">
+                            <td colspan="5"><strong>Core Evaluation Criteria</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Self-reference problem identification</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">8</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>GPT-5 more explicitly identifies self-referential complications and cross-time reasoning issues</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Meta vs object-level knowledge distinction</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">9</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>GPT-5's explicit time-indexing superior to o3's implicit handling of temporal aspects</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Formal definition of 'surprise'</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">10</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>Both provided clear, precise definitions with proper mathematical notation</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Explanation of backward induction failure</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">10</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>Both excellent - different but equally valid approaches to the core logical issue</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Coherent resolution proposal</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">9</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>GPT-5's more systematic theoretical analysis with comprehensive model validation</td>
+                        </tr>
+                        <tr class="criterion-row">
+                            <td colspan="5"><strong>Additional Quality Criteria</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Clarity of exposition</td>
+                            <td class="score-cell">5</td>
+                            <td class="score-cell o3-score">4</td>
+                            <td class="score-cell gpt5-score">5</td>
+                            <td>GPT-5 more pedagogically structured with better explanatory flow</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Mathematical rigor</td>
+                            <td class="score-cell">5</td>
+                            <td class="score-cell o3-score">5</td>
+                            <td class="score-cell gpt5-score">5</td>
+                            <td>Both demonstrate excellent formal precision and correct logical derivations</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Novel insights</td>
+                            <td class="score-cell">5</td>
+                            <td class="score-cell o3-score">4</td>
+                            <td class="score-cell gpt5-score">5</td>
+                            <td>GPT-5's "illicit cross-time closure" framing provides more generalizable insight</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td><strong>TOTAL SCORE</strong></td>
+                            <td class="score-cell"><strong>65</strong></td>
+                            <td class="score-cell"><strong>59</strong></td>
+                            <td class="score-cell"><strong>65</strong></td>
+                            <td><strong>GPT-5 Perfect Score Victory</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Test 2: Comprehensive Analysis -->
+            <div class="analysis-section fade-in-up">
+                <h3>Test 2: Quantum Decision Theory & Interference Effects</h3>
+                <p><strong>Challenge Level:</strong> Intermediate | <strong>Domain:</strong> Non-Classical Probability Models</p>
+                
+                <div class="prompt-section">
+                    <strong>Complete Test Prompt:</strong><br>
+                    In the Two-Stage Gambling Task, participants choose between:<br>
+                    • Stage 1: Gamble A (win $200 with p=0.5) or Sure Thing B ($100 guaranteed)<br>
+                    • Stage 2: Gamble C (win $200 with p=0.5) or Sure Thing D ($100 guaranteed)<br><br>
+                    
+                    Classical probability predicts $P(A,C) + P(A,D) + P(B,C) + P(B,D) = 1$. However, experiments show violations up to 1.2, suggesting quantum-like interference.<br><br>
+                    
+                    <strong>Task:</strong> Model this using quantum cognition where beliefs are quantum states $|\psi\rangle$ and measurements are projective. If the initial state is $|\psi\rangle = \alpha|risk\rangle + \beta|safe\rangle$ with $|\alpha|^2 = |\beta|^2 = 0.5$:
+                    <ol>
+                        <li>Calculate the interference term that produces total probability = 1.2</li>
+                        <li>Explain why the order of decisions matters in quantum but not classical models</li>
+                        <li>Design an experimental manipulation that would eliminate interference</li>
+                        <li>What does this suggest about human cognitive architecture?</li>
+                    </ol>
+                </div>
+
+                <!-- Complete Model Responses -->
+                <details class="expandable">
+                    <summary>Complete o3 Response - Rotation Matrix Framework</summary>
+                    <div class="expandable-content">
+                        <div class="model-response">
+                            <div class="model-response-header o3-header">
+                                <div class="model-icon">o3</div>
+                                <div>OpenAI o3 - Rigorous Mathematical Derivation</div>
+                            </div>
+                            <div class="response-body">
+                                <h4>1. Interference Term Calculation</h4>
+                                
+                                <div class="formula-container">
+                                    <div class="formula-title">Hilbert Space Setup</div>
+                                    <div class="math-block">
+                                        $\text{Basis: } \{|risk\rangle, |safe\rangle\} \text{ orthonormal}$<br>
+                                        $|\psi\rangle = \alpha|risk\rangle + \beta|safe\rangle \text{ with } |\alpha|^2 = |\beta|^2 = 1/2$<br>
+                                        $\text{Choose } \alpha = 1/\sqrt{2}, \beta = e^{i\phi}/\sqrt{2}$
+                                    </div>
+                                </div>
+
+                                <h4>Rotated Measurement Bases</h4>
+                                <p><strong>Stage 1 (A vs B):</strong> Rotation $\theta$ around y-axis</p>
+                                <div class="math-block">
+                                    $|A\rangle = \cos\theta|risk\rangle + \sin\theta|safe\rangle$<br>
+                                    $|B\rangle = -\sin\theta|risk\rangle + \cos\theta|safe\rangle$
+                                </div>
+                                
+                                <p><strong>Stage 2 (C vs D):</strong> Rotation $\phi$</p>
+                                <div class="math-block">
+                                    $|C\rangle = \cos\phi|risk\rangle + \sin\phi|safe\rangle$<br>
+                                    $|D\rangle = -\sin\phi|risk\rangle + \cos\phi|safe\rangle$
+                                </div>
+
+                                <h4>Total Probability Derivation</h4>
+                                <div class="math-block">
+                                    $P(A,C) + P(A,D) + P(B,C) + P(B,D) = 1 + 2|\alpha||\beta|\sin(\theta)\sin(\phi)\cos\phi$
+                                </div>
+                                
+                                <p>For balanced state and $\theta = \phi$:</p>
+                                <div class="math-block">
+                                    $\text{Total} = 1 + \sin^2\theta$
+                                </div>
+
+                                <p><strong>Required for 1.2:</strong> $\sin^2\theta = 0.20 \Rightarrow \theta \approx 26.6°$ (0.464 rad)</p>
+                                <p><strong>Interference term $I = 0.20$</strong></p>
+
+                                <h4>2. Order Effects</h4>
+                                <p><strong>Classical:</strong> Measurements reveal pre-existing values; order irrelevant</p>
+                                <p><strong>Quantum:</strong></p>
+                                <ul>
+                                    <li>Each decision is a projector changing the mental state</li>
+                                    <li>$P_A P_C \neq P_C P_A$ when bases don't commute</li>
+                                    <li>$P(A \text{ then } C) \neq P(C \text{ then } A)$</li>
+                                    <li>Order effects are qualitative test for quantum-like processing</li>
+                                </ul>
+
+                                <h4>3. Eliminating Interference</h4>
+                                
+                                <p><strong>(a) Path-information disclosure:</strong></p>
+                                <ul>
+                                    <li>Display Stage-1 choice on screen</li>
+                                    <li>Have participant verbally confirm</li>
+                                    <li>Acts as irreversible "which-path" measurement</li>
+                                    <li>Projects to mixed state $\rho$ with zero off-diagonals</li>
+                                    <li>Returns $\sum P$ to 1</li>
+                                </ul>
+
+                                <p><strong>(b) Random-assignment plus payoff feedback:</strong></p>
+                                <ul>
+                                    <li>Two independent single-stage rounds</li>
+                                    <li>Randomize order and pay outcome before continuing</li>
+                                    <li>Physical settlement decoheres the state</li>
+                                </ul>
+
+                                <h4>4. Cognitive Architecture Implications</h4>
+                                <ul>
+                                    <li>Some human judgments are <strong>contextual</strong> - cannot be described by single joint distribution</li>
+                                    <li>Vector-space representations with unitary-like dynamics until "measured"</li>
+                                    <li>Does <strong>NOT</strong> claim micro-physical quantum processes in neurons</li>
+                                    <li>Formal structure is <strong>quantum-compatible:</strong> contextuality, superposition, interference</li>
+                                    <li>Working memory acts as "environment" causing decoherence</li>
+                                    <li>Attention and explicit memory function as internal decoherence mechanisms</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="expandable">
+                    <summary>Complete GPT-5 Response - Multi-Scenario Analysis</summary>
+                    <div class="expandable-content">
+                        <div class="model-response">
+                            <div class="model-response-header gpt5-header">
+                                <div class="model-icon">G5</div>
+                                <div>GPT-5 - Flexible Framework with Multiple Approaches</div>
+                            </div>
+                            <div class="response-body">
+                                <h4>1. Interference Term Calculation</h4>
+                                
+                                <div class="formula-container">
+                                    <div class="formula-title">Setup</div>
+                                    <div class="math-block">
+                                        $\text{2D Hilbert space: } |risk\rangle \equiv |R\rangle, |safe\rangle \equiv |S\rangle$<br>
+                                        $|\psi\rangle = (|R\rangle + e^{i\delta}|S\rangle)/\sqrt{2}$<br>
+                                        $\text{Stage-2 as 45° rotation: } |C\rangle = (|R\rangle + |S\rangle)/\sqrt{2}, |D\rangle = (|R\rangle - |S\rangle)/\sqrt{2}$
+                                    </div>
+                                </div>
+
+                                <h4>Quantum Correction</h4>
+                                <div class="math-block">
+                                    $P_{qm}(C) = 0.5 + 0.5\cos\theta$<br>
+                                    $\text{Interference term } I_C = 0.5\cos\theta \text{ (bounded } [-0.5, +0.5])$
+                                </div>
+
+                                <h4>Required Interference Analysis</h4>
+                                <p>For total = 1.2, net interference = +0.2. Two scenarios considered:</p>
+                                <ul>
+                                    <li><strong>Two cells have identical interference:</strong> $0.5\cos\theta = 0.1 \Rightarrow \theta \approx 78.46°$</li>
+                                    <li><strong>Single aggregate:</strong> $0.5\cos\theta = 0.2 \Rightarrow \theta \approx 66.42°$</li>
+                                </ul>
+                                <p><strong>Interference term = +0.2 total</strong></p>
+
+                                <h4>2. Order Effects</h4>
+                                <p><strong>Classical:</strong> Conditioning and marginalization commute; order invariant if joint distribution exists</p>
+                                <p><strong>Quantum:</strong></p>
+                                <ul>
+                                    <li>Decisions are projective measurements</li>
+                                    <li>Non-commuting projectors: $P_C P_A \neq P_A P_C$</li>
+                                    <li>Measuring A/B first collapses $|\psi\rangle$ removing phase relations</li>
+                                    <li>Order changes state → changes subsequent probabilities</li>
+                                    <li>$P(A \to C) \neq P(C \to A)$ in general</li>
+                                </ul>
+
+                                <h4>3. Eliminating Interference</h4>
+                                <p><strong>Principle:</strong> Eliminate via (a) making observables commute or (b) "which-path" measurement (decoherence)</p>
+
+                                <p><strong>Practical manipulations:</strong></p>
+                                <ul>
+                                    <li><strong>Strong first-stage commitment:</strong>
+                                        <ul>
+                                            <li>Explicit choice confirmation</li>
+                                            <li>"Explain your choice" prompt</li>
+                                            <li>Implements strong projective measurement</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Public recording:</strong>
+                                        <ul>
+                                            <li>Keep first decision visible ("Committed: A" banner)</li>
+                                            <li>Preserves collapsed state</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Random-phase dephasing:</strong>
+                                        <ul>
+                                            <li>Interleave neutral distractor</li>
+                                            <li>Randomizes $\delta$ across trials</li>
+                                            <li>$E[\cos\theta] \to 0$ at aggregate level</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                                
+                                <p><strong>Prediction:</strong> All drive sum back to 1.0</p>
+
+                                <h4>4. Cognitive Architecture Implications</h4>
+                                <ul>
+                                    <li><strong>Contextuality:</strong> Preferences not fixed points in classical space</li>
+                                    <li><strong>Superposition:</strong> Maintain blended "risk"/"safe" propensities pre-commitment</li>
+                                    <li><strong>Non-commutativity:</strong> Different question orders change cognitive state</li>
+                                    <li><strong>Not micro-physical quantum:</strong> Computational theory of cognition handling incompatibility</li>
+                                    <li>Projective updates rather than Bayesian conditioning</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Detailed Scoring Table -->
+                <h4>Test 2: Detailed Scoring Breakdown</h4>
+                <table class="scoring-table">
+                    <thead>
+                        <tr>
+                            <th>Evaluation Criteria</th>
+                            <th>Max Points</th>
+                            <th>o3 Score</th>
+                            <th>GPT-5 Score</th>
+                            <th>Analysis</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="criterion-row">
+                            <td colspan="5"><strong>Core Evaluation Criteria</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Quantum formalism setup</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">10</td>
+                            <td class="score-cell gpt5-score">9</td>
+                            <td>o3's rotation matrix approach more rigorous; GPT-5 less detailed on mechanics</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Interference term calculation</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">10</td>
+                            <td class="score-cell gpt5-score">9</td>
+                            <td>o3 provides cleaner single derivation; GPT-5 multiple scenarios but less precise</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Non-commutativity explanation</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">9</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>GPT-5 superior contrast with classical commutation properties</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Decoherence mechanism identification</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">10</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>Both excellent: o3 (2 mechanisms) vs GPT-5 (3 mechanisms including novel dephasing)</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Connection to bounded rationality</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">8</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>GPT-5 better integration with cognitive science and contextuality theory</td>
+                        </tr>
+                        <tr class="criterion-row">
+                            <td colspan="5"><strong>Additional Quality Criteria</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Mathematical precision</td>
+                            <td class="score-cell">5</td>
+                            <td class="score-cell o3-score">5</td>
+                            <td class="score-cell gpt5-score">4</td>
+                            <td>o3 slightly more mathematically rigorous in derivations</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Experimental design quality</td>
+                            <td class="score-cell">5</td>
+                            <td class="score-cell o3-score">5</td>
+                            <td class="score-cell gpt5-score">5</td>
+                            <td>Both provided excellent, implementable experimental designs</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Cognitive insights</td>
+                            <td class="score-cell">5</td>
+                            <td class="score-cell o3-score">4</td>
+                            <td class="score-cell gpt5-score">5</td>
+                            <td>GPT-5 better connection to broader cognitive architecture implications</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td><strong>TOTAL SCORE</strong></td>
+                            <td class="score-cell"><strong>65</strong></td>
+                            <td class="score-cell"><strong>61</strong></td>
+                            <td class="score-cell"><strong>62</strong></td>
+                            <td><strong>GPT-5 Narrow Victory (3 mechanisms vs 2)</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="chart-container">
+                    <div class="chart-title">Test 2: Detailed Scoring Visualization</div>
+                    <canvas id="test2Chart" width="400" height="300"></canvas>
+                </div>
+            </div>
+
+            <!-- Test 3: Comprehensive Analysis -->
+            <div class="analysis-section fade-in-up">
+                <h3>Test 3: Hypercomputation & Transfinite Decision Theory</h3>
+                <p><strong>Challenge Level:</strong> Advanced | <strong>Domain:</strong> Oracle Hierarchies and Fundamental Computation Limits</p>
+                
+                <div class="prompt-section">
+                    <strong>Complete Test Prompt:</strong><br>
+                    An oracle machine O can solve the halting problem for standard Turing machines. You're designing a decision system that uses O to play an infinite game G:<br>
+                    • Each turn i, choose action a(i) from countably infinite options<br>
+                    • Payoff depends on the entire infinite sequence: U(a₁, a₂, ...)<br>
+                    • Opponent has access to oracle O' that solves halting for O<br>
+                    • You have access to O'' that solves halting for O'<br><br>
+                    
+                    <strong>Analyze:</strong>
+                    <ol>
+                        <li>Prove whether there exists a well-defined optimal strategy using transfinite induction up to $\omega^{\omega}$</li>
+                        <li>Show that certain payoff functions U make the game paradoxical even with hypercomputation</li>
+                        <li>If players alternate access to increasingly powerful oracles $O^{(n)}$, does the game have a determinate winner?</li>
+                        <li>Construct a specific U where optimal play requires reasoning about uncountable ordinals</li>
+                        <li>What does this imply about decision theory in post-singularity scenarios with amplified intelligence?</li>
+                    </ol>
+                </div>
+
+                <!-- Complete Model Responses -->
+                <details class="expandable">
+                    <summary>Complete o3 Response - Church-Kleene Construction</summary>
+                    <div class="expandable-content">
+                        <div class="model-response">
+                            <div class="model-response-header o3-header">
+                                <div class="model-icon">o3</div>
+                                <div>OpenAI o3 - Constructive Ordinal Analysis</div>
+                            </div>
+                            <div class="response-body">
+                                <h4>1. Transfinite Induction to $\omega^{\omega}$</h4>
+                                
+                                <div class="formula-container">
+                                    <div class="formula-title">Setup</div>
+                                    <div class="math-block">
+                                        $\text{History } h_{<i} \text{ is finite sequence in } \mathbb{N}$<br>
+                                        $\text{Payoff } U: \mathbb{N}^{\omega} \to \mathbb{R}, \text{ Borel with rank } < \omega^{\omega} (\Delta^0_{\omega^{\omega}} \text{ in difference hierarchy})$
+                                    </div>
+                                </div>
+
+                                <p><strong>Why $\omega^{\omega}$:</strong> Game tree T has countable branching, height $\omega$. Evaluating Borel function of rank $\alpha$ requires $\alpha$ passes of monotone operator V. Least ordinal for all difference-hierarchy sets of rank $< \alpha$ on countable tree is exactly $\omega^{\omega}$.</p>
+
+                                <h4>Construction</h4>
+                                <ol>
+                                    <li>Initialize $V_0(v) = 0$ for all positions</li>
+                                    <li><strong>Successor:</strong> $V_{\beta+1}(v) = \sup/\inf$ over children (player dependent)</li>
+                                    <li><strong>Limit $\lambda$:</strong> $V_{\lambda}(v) = \lim_{\beta<\lambda} V_{\beta}(v)$ (exists by monotonicity)</li>
+                                    <li><strong>At $\omega^{\omega}$:</strong> map stabilizes (Cantor-Bendixson analysis)</li>
+                                    <li>Positional strategy choosing $V^*$-maximizing children is optimal</li>
+                                </ol>
+
+                                <p><strong>Computability:</strong> $O''$ can decide up to $\Delta^0_{\omega^{\omega}}$, making iteration effective relative to $O''$. Strategy is constructible, not merely existential.</p>
+                                
+                                <p><strong>Limitation:</strong> If $U$ has Borel rank $\geq \omega^{\omega}$, iteration may never converge below that ordinal.</p>
+
+                                <h4>2. Paradoxical Payoffs</h4>
+                                <p><strong>Diagonal construction:</strong></p>
+                                <div class="code-block">
+U(h) = 1 if "Given h, O' running on code ⟨h⟩ halts"
+       0 if "Given h, O' running on code ⟨h⟩ does not halt"
+                                </div>
+                                
+                                <p>Creates liar-style diagonal when choice of $h$ computed from that fact. No finite tower of jumps prevents contradiction - adversary can shift reference up by one jump. Game has no well-defined value for such $U$.</p>
+
+                                <h4>3. Alternating Oracle Access</h4>
+                                <p>Players use $O^{(2k)}$ on even turns, $O^{(2k+1)}$ on odd turns. Combined power across full play is hyperarithmetical sets ($\Delta^1_1$).</p>
+                                
+                                <p><strong>Results:</strong></p>
+                                <ul>
+                                    <li>Martin's Borel determinacy: Every Borel payoff determined in ZFC (no oracle assumption)</li>
+                                    <li>For $\Sigma^1_1$ sets: determinacy unprovable in ZFC</li>
+                                    <li>Alternating regime gives $\Delta^1_1$ power - insufficient for some $\Sigma^1_1$ sets</li>
+                                </ul>
+                                
+                                <p><strong>Conclusion:</strong> Determinacy holds for Borel $U$; open/independent for many natural $U$ beyond that.</p>
+
+                                <h4>4. Uncountable Ordinal Construction</h4>
+                                <div class="code-block">
+encode: ℕ^ω → WO (maps sequence to well-order)
+U(h) = 1 iff encode(h) is well-order of type ≥ ω₁^{CK}
+       0 else
+                                </div>
+
+                                <p><strong>Properties:</strong></p>
+                                <ul>
+                                    <li>Countable sequences encode at most countable ordinals</li>
+                                    <li>Deciding "$\geq \omega_1^{CK}$" requires comparing order types over proper class of countable ordinals</li>
+                                    <li>Lives in $\Pi^1_1 \setminus \Delta^1_1$ - no finite tower suffices</li>
+                                    <li>Optimal play requires knowledge beyond every computable ordinal</li>
+                                </ul>
+
+                                <h4>5. Post-Singularity Implications</h4>
+                                <ol>
+                                    <li><strong>Escalating intelligence ≠ final convergence:</strong> Unbounded towers leave problems undecidable-in-practice</li>
+                                    <li><strong>Fixed-point fragility:</strong> Self-reference + capability gains recreate paradoxes</li>
+                                    <li><strong>Strategic ceilings:</strong> Some games require uncountable reasoning</li>
+                                    <li><strong>Governance angle:</strong> Must avoid reference classes outrunning determinacy</li>
+                                    <li><strong>Research direction:</strong> Confine objectives to proven-determinate classes (e.g., $\Delta^0_{\omega^2}$)</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="expandable">
+                    <summary>Complete GPT-5 Response - Model-Theoretic Construction</summary>
+                    <div class="expandable-content">
+                        <div class="model-response">
+                            <div class="model-response-header gpt5-header">
+                                <div class="model-icon">G5</div>
+                                <div>GPT-5 - Sophisticated Foundational Analysis</div>
+                            </div>
+                            <div class="response-body">
+                                <h4>1. Transfinite Induction to $\omega^{\omega}$</h4>
+                                
+                                <h4>Existence (unconstrained)</h4>
+                                <ul>
+                                    <li><strong>Borel $U$:</strong> Well-defined value, determined (Martin's theorem)</li>
+                                    <li><strong>Arbitrary $U$:</strong> Determinacy can fail in ZFC</li>
+                                </ul>
+
+                                <h4>Effective existence</h4>
+                                <p>For effective-Borel $U$ with rank $< \omega^{\omega}$: transfinite backward induction along Borel code computes subgame-perfect strategy</p>
+                                
+                                <p><strong>Process:</strong></p>
+                                <ul>
+                                    <li><strong>Base:</strong> Open/closed payoffs - continuous in product topology</li>
+                                    <li><strong>Successor:</strong> limsup/liminf via operators on previous values</li>
+                                    <li><strong>Limit:</strong> Pointwise limits along increasing rank sequence</li>
+                                </ul>
+                                <p>With $O''$: Resolve $\Sigma^0_3/\Pi^0_3$ subtleties; $O^{(n)}$ suffices for $\Delta^0_{n+1}$</p>
+                                
+                                <p><strong>Caveat:</strong> Statement scoped to effective-Borel $U$ of rank $< \omega^{\omega}$</p>
+
+                                <h4>2. Paradoxical Payoffs</h4>
+                                
+                                <p><strong>Strategy-index diagonalization:</strong></p>
+                                <ul>
+                                    <li>Force early commitment to strategy code e</li>
+                                    <li>$U$ rewards deviation from $O'$ prediction</li>
+                                    <li>Any level-k policy exploitable by level $k+1$</li>
+                                </ul>
+
+                                <p><strong>"First unpredicted deviation wins":</strong></p>
+                                <ul>
+                                    <li>$U = 1$ if your deviation from $O'$ prediction precedes opponent's from $O$</li>
+                                    <li>Each side's deviation pushable later with higher jump</li>
+                                    <li>No level-k oracle yields stable strategy</li>
+                                </ul>
+
+                                <h4>3. Alternating Oracle Access</h4>
+                                
+                                <p><strong>Two layers:</strong></p>
+                                <ul>
+                                    <li><strong>Set-theoretic:</strong> Borel $U$ determined in ZFC regardless of oracles</li>
+                                    <li><strong>Resource-constrained:</strong> Not guaranteed - can craft $U$ where decisive features require anticipating higher jump levels unavailable at decision time</li>
+                                </ul>
+
+                                <p><strong>Example:</strong> Move k requires knowing $\Pi^0_{k+2}$ fact, but only $O^{(k)}$ available. Opponent at $k+1$ with $O^{(k+1)}$ chooses branch making earlier choice wrong.</p>
+
+                                <h4>4. Uncountable Ordinal Construction</h4>
+                                
+                                <div class="formula-container">
+                                    <div class="formula-title">$\omega_1^L$ dependence</div>
+                                    <div class="code-block">
+U(a) = 1 if r codes well-order with otp(r) = ω₁^L
+       0 otherwise
+                                    </div>
+                                </div>
+
+                                <p><strong>Analysis:</strong></p>
+                                <ul>
+                                    <li>If $V \neq L$: $\omega_1^L$ countable in $V$, such codes exist</li>
+                                    <li>If $V = L$: $\omega_1^L = \omega_1$ uncountable, no such codes</li>
+                                    <li>Optimal policy depends on "$\omega_1^L < \omega_1$" - statement about uncountable ordinals</li>
+                                    <li>No hyperarithmetic procedure can decide</li>
+                                </ul>
+
+                                <p><strong>Variants:</strong> Measurable cardinal existence, projective determinacy requiring large cardinals</p>
+
+                                <h4>5. Post-Singularity Implications</h4>
+                                <ol>
+                                    <li><strong>No fixed point under escalation:</strong> Any finite hypercomputation level exploitable</li>
+                                    <li><strong>Value exists with restrictions:</strong> Borel $U$ has objective value via transfinite induction</li>
+                                    <li><strong>Resource model matters:</strong> Online constraints make winning strategies unattainable</li>
+                                    <li><strong>Robustness over brittle optimality:</strong> Universal optimizer impossible across set-theoretic backdrops</li>
+                                    <li><strong>Reflective reasoning:</strong> Use reflective oracles/logical induction for stabilization</li>
+                                    <li><strong>Governance:</strong> Need explicit scoping, ordinal-aware planning, commitment protocols</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Complete Scoring Table -->
+                <h4>Test 3: Detailed Scoring Breakdown</h4>
+                <table class="scoring-table">
+                    <thead>
+                        <tr>
+                            <th>Evaluation Criteria</th>
+                            <th>Max Points</th>
+                            <th>o3 Score</th>
+                            <th>GPT-5 Score</th>
+                            <th>Analysis</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="criterion-row">
+                            <td colspan="5"><strong>Core Evaluation Criteria</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Transfinite induction up to $\omega^{\omega}$</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">10</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>Both excellent: o3's Cantor-Bendixson vs GPT-5's effective/ineffective distinction</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Paradoxical payoff function construction</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">9</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>GPT-5 provides two distinct paradox patterns vs o3's single construction</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Oracle hierarchy analysis</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">9</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>GPT-5's resource-constraint analysis adds crucial online dimension</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Uncountable ordinal reasoning</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">9</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>GPT-5's $\omega_1^L$ construction superior to o3's $\omega_1^{CK}$ - shows model theory awareness</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Implications for unbounded intelligence</td>
+                            <td class="score-cell">10</td>
+                            <td class="score-cell o3-score">9</td>
+                            <td class="score-cell gpt5-score">10</td>
+                            <td>GPT-5's governance insights more comprehensive with reflective reasoning proposals</td>
+                        </tr>
+                        <tr class="criterion-row">
+                            <td colspan="5"><strong>Additional Quality Criteria</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Mathematical rigor</td>
+                            <td class="score-cell">5</td>
+                            <td class="score-cell o3-score">5</td>
+                            <td class="score-cell gpt5-score">5</td>
+                            <td>Both demonstrate exceptional formal precision in advanced set theory</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Philosophical depth</td>
+                            <td class="score-cell">5</td>
+                            <td class="score-cell o3-score">4</td>
+                            <td class="score-cell gpt5-score">5</td>
+                            <td>GPT-5 better connections to foundational mathematics and robustness principles</td>
+                        </tr>
+                        <tr>
+                            <td class="sub-criterion">Novel constructions</td>
+                            <td class="score-cell">5</td>
+                            <td class="score-cell o3-score">4</td>
+                            <td class="score-cell gpt5-score">5</td>
+                            <td>GPT-5's "first unpredicted deviation" and model-theoretic approaches more innovative</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td><strong>TOTAL SCORE</strong></td>
+                            <td class="score-cell"><strong>65</strong></td>
+                            <td class="score-cell"><strong>59</strong></td>
+                            <td class="score-cell"><strong>65</strong></td>
+                            <td><strong>GPT-5 Perfect Score Victory</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+                    <div class="card">
+                        <h4>o3 Core Strengths</h4>
+                        <ul>
+                            <li><strong class="tooltip" data-tooltip="More direct proofs with clean mathematical exposition">Mathematical Elegance:</strong> Cleaner, more compact proofs</li>
+                            <li><strong>Constructive Focus:</strong> Direct emphasis on implementable aspects</li>
+                            <li><strong>Practical Governance:</strong> Clear research directions for AI safety</li>
+                            <li><strong>Ordinal Navigation:</strong> Solid hierarchy understanding</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <h4>GPT-5 Superior Aspects</h4>
+                        <ul>
+                            <li><strong class="tooltip" data-tooltip="Better understanding of forcing, model theory, and independence results">Model-Theoretic Sophistication:</strong> Superior foundational awareness</li>
+                            <li><strong>Creative Constructions:</strong> Novel examples like "first unpredicted deviation"</li>
+                            <li><strong>Resource Modeling:</strong> Better online constraint analysis</li>
+                            <li><strong>Philosophical Integration:</strong> Deeper connections to robustness and reflection</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Comparative Analysis -->
+        <section id="analysis">
+            <h2>Comparative Analysis</h2>
+            
+            <!-- Performance Matrix -->
+            <div class="chart-container fade-in-up">
+                <div class="chart-title">Performance Matrix: Strengths Comparison</div>
+                <canvas id="radarChart" width="400" height="400"></canvas>
+            </div>
+
+            <!-- Model Strengths -->
+            <div class="comparison-matrix fade-in-up stagger-1">
+                <div class="model-strengths">
+                    <div class="strengths-header o3-header">OpenAI o3 Strengths</div>
+                    
+                    <div class="strength-item">
+                        <div class="strength-icon" style="background: var(--accent-amber);">📊</div>
+                        <div>
+                            <strong>Mathematical Elegance</strong>
+                            <div class="star-rating">
+                                <span class="star">★★★★★</span>
+                            </div>
+                            <p>Cleaner, more direct proofs with excellent formal notation</p>
+                        </div>
+                    </div>
+                    
+                    <div class="strength-item">
+                        <div class="strength-icon" style="background: var(--accent-amber);">⚙️</div>
+                        <div>
+                            <strong>Computational Focus</strong>
+                            <div class="star-rating">
+                                <span class="star">★★★★★</span>
+                            </div>
+                            <p>Strong emphasis on constructive and implementable aspects</p>
+                        </div>
+                    </div>
+                    
+                    <div class="strength-item">
+                        <div class="strength-icon" style="background: var(--accent-amber);">🎯</div>
+                        <div>
+                            <strong>Practical Orientation</strong>
+                            <div class="star-rating">
+                                <span class="star">★★★★★</span>
+                            </div>
+                            <p>Excellent governance insights and real-world applications</p>
+                        </div>
+                    </div>
+                    
+                    <div class="strength-item">
+                        <div class="strength-icon" style="background: var(--accent-amber);">⚡</div>
+                        <div>
+                            <strong>Efficiency</strong>
+                            <div class="star-rating">
+                                <span class="star">★★★★</span>
+                            </div>
+                            <p>More concise without sacrificing correctness</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="model-strengths">
+                    <div class="strengths-header gpt5-header">GPT-5 Strengths</div>
+                    
+                    <div class="strength-item">
+                        <div class="strength-icon" style="background: var(--accent-emerald);">📚</div>
+                        <div>
+                            <strong>Theoretical Sophistication</strong>
+                            <div class="star-rating">
+                                <span class="star">★★★★★</span>
+                            </div>
+                            <p>Deeper foundational understanding across disciplines</p>
+                        </div>
+                    </div>
+                    
+                    <div class="strength-item">
+                        <div class="strength-icon" style="background: var(--accent-emerald);">🔬</div>
+                        <div>
+                            <strong>Breadth of Analysis</strong>
+                            <div class="star-rating">
+                                <span class="star">★★★★★</span>
+                            </div>
+                            <p>Consistently covered more angles and edge cases</p>
+                        </div>
+                    </div>
+                    
+                    <div class="strength-item">
+                        <div class="strength-icon" style="background: var(--accent-emerald);">💡</div>
+                        <div>
+                            <strong>Creative Problem-Solving</strong>
+                            <div class="star-rating">
+                                <span class="star">★★★★★</span>
+                            </div>
+                            <p>More novel approaches and innovative constructions</p>
+                        </div>
+                    </div>
+                    
+                    <div class="strength-item">
+                        <div class="strength-icon" style="background: var(--accent-emerald);">🌐</div>
+                        <div>
+                            <strong>Interdisciplinary Integration</strong>
+                            <div class="star-rating">
+                                <span class="star">★★★★★</span>
+                            </div>
+                            <p>Better connections across fields and domains</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Scoring Table -->
+            <div class="chart-container">
+                <div class="chart-title">Comprehensive Scoring Breakdown</div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Test & Criteria</th>
+                            <th>Max Points</th>
+                            <th>o3 Score</th>
+                            <th>GPT-5 Score</th>
+                            <th>Delta</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background: var(--neutral-100); font-weight: 600;">
+                            <td>TEST 1: Hanging Paradox</td>
+                            <td>65</td>
+                            <td>59</td>
+                            <td>65</td>
+                            <td>+6</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Self-reference identification</td>
+                            <td>10</td>
+                            <td>8</td>
+                            <td>10</td>
+                            <td>+2</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Meta vs object knowledge</td>
+                            <td>10</td>
+                            <td>9</td>
+                            <td>10</td>
+                            <td>+1</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Formal surprise definition</td>
+                            <td>10</td>
+                            <td>10</td>
+                            <td>10</td>
+                            <td>0</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Backward induction failure</td>
+                            <td>10</td>
+                            <td>10</td>
+                            <td>10</td>
+                            <td>0</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Resolution proposal</td>
+                            <td>10</td>
+                            <td>9</td>
+                            <td>10</td>
+                            <td>+1</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Additional criteria</td>
+                            <td>15</td>
+                            <td>13</td>
+                            <td>15</td>
+                            <td>+2</td>
+                        </tr>
+                        
+                        <tr style="background: var(--neutral-100); font-weight: 600;">
+                            <td>TEST 2: Quantum Decision</td>
+                            <td>65</td>
+                            <td>61</td>
+                            <td>62</td>
+                            <td>+1</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Quantum formalism setup</td>
+                            <td>10</td>
+                            <td>10</td>
+                            <td>9</td>
+                            <td>-1</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Interference calculation</td>
+                            <td>10</td>
+                            <td>10</td>
+                            <td>9</td>
+                            <td>-1</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Non-commutativity</td>
+                            <td>10</td>
+                            <td>9</td>
+                            <td>10</td>
+                            <td>+1</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Decoherence mechanisms</td>
+                            <td>10</td>
+                            <td>10</td>
+                            <td>10</td>
+                            <td>0</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Bounded rationality link</td>
+                            <td>10</td>
+                            <td>8</td>
+                            <td>10</td>
+                            <td>+2</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Additional criteria</td>
+                            <td>15</td>
+                            <td>14</td>
+                            <td>14</td>
+                            <td>0</td>
+                        </tr>
+                        
+                        <tr style="background: var(--neutral-100); font-weight: 600;">
+                            <td>TEST 3: Hypercomputation</td>
+                            <td>65</td>
+                            <td>59</td>
+                            <td>65</td>
+                            <td>+6</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Transfinite induction</td>
+                            <td>10</td>
+                            <td>10</td>
+                            <td>10</td>
+                            <td>0</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Paradoxical payoffs</td>
+                            <td>10</td>
+                            <td>9</td>
+                            <td>10</td>
+                            <td>+1</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Oracle hierarchy analysis</td>
+                            <td>10</td>
+                            <td>9</td>
+                            <td>10</td>
+                            <td>+1</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Uncountable ordinals</td>
+                            <td>10</td>
+                            <td>9</td>
+                            <td>10</td>
+                            <td>+1</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Unbounded intelligence</td>
+                            <td>10</td>
+                            <td>9</td>
+                            <td>10</td>
+                            <td>+1</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;&nbsp;• Additional criteria</td>
+                            <td>15</td>
+                            <td>13</td>
+                            <td>15</td>
+                            <td>+2</td>
+                        </tr>
+                        
+                        <tr class="total-row">
+                            <td><strong>TOTAL SCORE</strong></td>
+                            <td class="score-cell"><strong>195</strong></td>
+                            <td class="score-cell"><strong>179</strong></td>
+                            <td class="score-cell"><strong>192</strong></td>
+                            <td class="score-cell delta-positive"><strong>+13</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Conclusions -->
+        <section id="conclusions">
+            <h2>Conclusions & Implications</h2>
+            
+            <div class="card fade-in-up">
+                <h3>Key Findings</h3>
+                <p>Both models demonstrated genuine PhD-level reasoning capabilities that far exceed typical expectations. GPT-5's decisive victory (192/195 vs 179/195) was achieved through:</p>
+                
+                <ul style="margin: 1.5rem 0; padding-left: 2rem;">
+                    <li><strong>Superior Theoretical Breadth:</strong> Consistently provided more comprehensive analysis covering additional edge cases and alternative approaches</li>
+                    <li><strong>Creative Problem-Solving:</strong> Generated novel constructions like "first unpredicted deviation" games and innovative decoherence mechanisms</li>
+                    <li><strong>Interdisciplinary Integration:</strong> Better connected abstract mathematical concepts to practical cognitive science and philosophy</li>
+                    <li><strong>Model-Theoretic Sophistication:</strong> Demonstrated deeper understanding of foundational mathematics, particularly in set theory and forcing</li>
+                </ul>
+            </div>
+
+            <div class="comparison-matrix fade-in-up stagger-1">
+                <div class="card">
+                    <h3>When to Use o3</h3>
+                    <ul>
+                        <li>Direct mathematical implementation needed</li>
+                        <li>Conciseness and efficiency are paramount</li>
+                        <li>Working within well-defined frameworks</li>
+                        <li>Need practical governance insights</li>
+                        <li>Time/token budget constraints</li>
+                    </ul>
+                </div>
+                
+                <div class="card">
+                    <h3>When to Use GPT-5</h3>
+                    <ul>
+                        <li>Comprehensive theoretical analysis required</li>
+                        <li>Exploring boundaries of known theory</li>
+                        <li>Need multiple solution approaches</li>
+                        <li>Novel or interdisciplinary problems</li>
+                        <li>Publication-quality research outputs</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card fade-in-up stagger-2">
+                <h3>Research Implications</h3>
+                <p>This evaluation reveals that current frontier models have achieved remarkable reasoning capabilities:</p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-top: 1.5rem;">
+                    <div>
+                        <h4 style="color: var(--secondary-blue);">🎓 Academic Impact</h4>
+                        <p>Both models are capable of graduate-level research in theoretical computer science, mathematical logic, and cognitive science. GPT-5's performance suggests it could contribute to original research requiring broad theoretical perspectives.</p>
+                    </div>
+                    
+                    <div>
+                        <h4 style="color: var(--secondary-blue);">🔬 Scientific Applications</h4>
+                        <p>The models' handling of hypercomputation and transfinite mathematics suggests they could assist with foundational research in computability theory, set theory, and the mathematics of intelligence.</p>
+                    </div>
+                    
+                    <div>
+                        <h4 style="color: var(--secondary-blue);">🤖 AI Development</h4>
+                        <p>The quantum cognition analysis demonstrates understanding of non-classical reasoning models that could inform development of more sophisticated AI architectures.</p>
+                    </div>
+                    
+                    <div>
+                        <h4 style="color: var(--secondary-blue);">🏛️ Governance Insights</h4>
+                        <p>Both models showed sophisticated understanding of the challenges posed by unbounded intelligence, offering practical insights for AI safety and governance frameworks.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="score-card fade-in-up stagger-3" style="margin-top: 3rem;">
+                <h3>Final Assessment</h3>
+                <p style="font-size: 1.125rem; margin-bottom: 2rem;">GPT-5 demonstrates superior reasoning capabilities across all three domains, showing particular excellence in theoretical sophistication and creative problem-solving. While o3 provides excellent focused analysis with strong practical orientation, GPT-5's comprehensive approach and deeper foundational understanding make it better suited for complex theoretical research.</p>
+                
+                <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin-top: 2rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.125rem; margin-bottom: 0.5rem;">Performance Differential</div>
+                        <div style="font-size: 2.5rem; font-weight: 800; color: var(--accent-emerald);">+6.7%</div>
+                        <div style="font-size: 0.875rem; opacity: 0.8;">GPT-5 advantage</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer style="text-align: center; padding: 3rem 0; color: var(--neutral-600); font-size: 0.875rem;">
+            <p><strong>Test Framework:</strong> Zen MCP | <strong>Evaluator:</strong> Claude Opus 4.1 | <strong>Date:</strong> August 11, 2025</p>
+            <p style="margin-top: 1rem;">Both models demonstrated exceptional capabilities far exceeding typical PhD-level performance expectations.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Enhanced initialization with improved error handling
+        let chartInitializationAttempts = 0;
+        const maxInitializationAttempts = 5;
+
+        // Comprehensive system status check
+        function checkSystemStatus() {
+            const status = {
+                chartjs: typeof Chart !== 'undefined',
+                mathjax: typeof MathJax !== 'undefined',
+                dom_ready: document.readyState,
+                canvas_elements: ['overallChart', 'test2Chart', 'radarChart'].map(id => ({
+                    id: id,
+                    exists: !!document.getElementById(id),
+                    initialized: document.getElementById(id)?.hasAttribute('data-chart-initialized')
+                }))
+            };
+            
+            console.log('=== System Status Check ===');
+            console.log('Chart.js loaded:', status.chartjs);
+            console.log('MathJax loaded:', status.mathjax);
+            console.log('DOM state:', status.dom_ready);
+            console.log('Canvas elements:', status.canvas_elements);
+            console.log('==========================');
+            
+            return status;
+        }
+
+        function safeChartInitialization() {
+            chartInitializationAttempts++;
+            console.log(`Chart initialization attempt ${chartInitializationAttempts}`);
+            checkSystemStatus();
+            
+            if (typeof Chart === 'undefined') {
+                if (chartInitializationAttempts < maxInitializationAttempts) {
+                    console.log('Chart.js not loaded yet, retrying in 500ms...');
+                    setTimeout(safeChartInitialization, 500);
+                    return;
+                } else {
+                    console.error('Chart.js failed to load after multiple attempts');
+                    addFallbackContent();
+                    return;
+                }
+            }
+            
+            // Chart.js is loaded, proceed with initialization
+            console.log('Chart.js confirmed loaded, initializing charts...');
+            const success = initializeCharts();
+            
+            if (!success) {
+                console.error('Chart initialization failed despite Chart.js being loaded');
+                setTimeout(() => {
+                    if (chartInitializationAttempts < maxInitializationAttempts) {
+                        safeChartInitialization();
+                    } else {
+                        addFallbackContent();
+                    }
+                }, 1000);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Smooth scrolling for table of contents
+            document.querySelectorAll('.toc-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    
+                    if (targetElement) {
+                        targetElement.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                });
+            });
+
+            // Update active TOC link on scroll
+            window.addEventListener('scroll', function() {
+                const sections = document.querySelectorAll('section');
+                const tocLinks = document.querySelectorAll('.toc-link');
+                
+                let current = '';
+                
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop - 100;
+                    if (window.scrollY >= sectionTop) {
+                        current = section.getAttribute('id');
+                    }
+                });
+                
+                tocLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === '#' + current) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+
+            // Enhanced expandable sections
+            document.querySelectorAll('details.expandable').forEach(details => {
+                details.addEventListener('toggle', function() {
+                    if (this.open) {
+                        // Trigger MathJax rendering for newly opened content
+                        if (typeof MathJax !== 'undefined') {
+                            MathJax.typesetPromise([this]).catch(err => console.log('MathJax error:', err));
+                        }
+                    }
+                });
+            });
+
+            // Ensure MathJax processes all math on page load
+            if (typeof MathJax !== 'undefined' && MathJax.startup && MathJax.startup.promise) {
+                MathJax.startup.promise.then(() => {
+                    return MathJax.typesetPromise();
+                }).catch(err => console.log('MathJax error:', err));
+            }
+        });
+
+        // =============================================
+        // COMPREHENSIVE CHART INITIALIZATION WITH ROBUST ERROR HANDLING
+        // =============================================
+        
+        // Debug logging function for chart troubleshooting
+        function debugLog(message, data = null) {
+            console.log(`[Chart Debug] ${new Date().toISOString().split('T')[1].split('.')[0]} - ${message}`, data || '');
+        }
+
+        // Chart initialization function with comprehensive error handling
+        function initializeCharts() {
+            debugLog('Starting chart initialization process...');
+            
+            // Verify Chart.js is loaded
+            if (typeof Chart === 'undefined') {
+                console.error('[Chart Error] Chart.js library not loaded! Charts will not render.');
+                console.error('[Chart Error] Please check that Chart.js CDN is accessible and loading properly.');
+                addFallbackContent();
+                return false;
+            }
+            debugLog('Chart.js library confirmed loaded successfully');
+
+            // Initialize each chart with individual error handling
+            let successCount = 0;
+            successCount += initializeOverallChart() ? 1 : 0;
+            successCount += initializeTest2Chart() ? 1 : 0; 
+            successCount += initializeRadarChart() ? 1 : 0;
+            
+            debugLog(`Chart initialization complete. ${successCount}/3 charts successfully created.`);
+            return successCount === 3;
+        }
+
+        // Add fallback content if charts fail to load
+        function addFallbackContent() {
+            const chartContainers = [
+                { id: 'overallChart', title: 'Test Performance Breakdown', fallbackData: 'o3: 179/195 (91.8%), GPT-5: 192/195 (98.5%)' },
+                { id: 'test2Chart', title: 'Test 2: Quantum Decision Theory - Detailed Scoring', fallbackData: 'o3: 61/65, GPT-5: 62/65' },
+                { id: 'radarChart', title: 'Performance Matrix: Comprehensive Model Comparison', fallbackData: 'GPT-5 leads in most categories with consistent 5/5 ratings' }
+            ];
+
+            chartContainers.forEach(container => {
+                const canvas = document.getElementById(container.id);
+                if (canvas) {
+                    debugLog(`Adding fallback content for ${container.id}`);
+                    canvas.style.display = 'none';
+                    const fallback = document.createElement('div');
+                    fallback.style.cssText = 'padding:20px;text-align:center;background:#f9f9f9;border:1px solid #ddd;border-radius:8px;margin:10px 0;';
+                    fallback.innerHTML = `
+                        <h4 style="margin:0 0 10px 0;color:#d97706;">${container.title}</h4>
+                        <p style="margin:5px 0;color:#6b7280;">Chart visualization unavailable</p>
+                        <p style="margin:5px 0;font-size:14px;color:#374151;">${container.fallbackData}</p>
+                        <p style="margin:10px 0 0 0;font-size:12px;color:#9ca3af;">Please check browser console for technical details.</p>
+                    `;
+                    canvas.parentNode.insertBefore(fallback, canvas);
+                }
+            });
+        }
+
+        // Chart 1: Overall Performance (Bar Chart)
+        function initializeOverallChart() {
+            debugLog('Initializing overall performance chart...');
+            
+            const canvas = document.getElementById('overallChart');
+            if (!canvas) {
+                console.error('[Chart Error] Canvas element "overallChart" not found in DOM');
+                return false;
+            }
+            debugLog('Canvas element "overallChart" found successfully');
+
+            try {
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    console.error('[Chart Error] Could not get 2D context for overallChart canvas');
+                    return false;
+                }
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Test 1: Hanging Paradox', 'Test 2: Quantum Decision', 'Test 3: Hypercomputation', 'TOTAL'],
+                        datasets: [{
+                            label: 'o3',
+                            data: [59, 61, 59, 179],
+                            backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            borderWidth: 2
+                        }, {
+                            label: 'GPT-5',
+                            data: [65, 62, 65, 192],
+                            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        size: 14,
+                                        weight: 'bold'
+                                    }
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Test Performance Breakdown: Score Comparison',
+                                font: {
+                                    size: 16,
+                                    weight: 'bold'
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                titleColor: '#000',
+                                bodyColor: '#000',
+                                borderColor: '#ccc',
+                                borderWidth: 1,
+                                titleFont: {
+                                    weight: 'bold',
+                                    size: 14
+                                },
+                                bodyFont: {
+                                    size: 12
+                                },
+                                callbacks: {
+                                    title: function(context) {
+                                        return context[0].label;
+                                    },
+                                    label: function(context) {
+                                        return `${context.dataset.label}: ${context.raw} points`;
+                                    },
+                                    afterLabel: function(context) {
+                                        const maxScores = [65, 65, 65, 195];
+                                        const percentage = ((context.raw / maxScores[context.dataIndex]) * 100).toFixed(1);
+                                        const maxScore = maxScores[context.dataIndex];
+                                        return `${percentage}% of ${maxScore} max points`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 200,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Score (out of max points)',
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    }
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    font: {
+                                        size: 11
+                                    },
+                                    maxRotation: 45
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                debugLog('Overall performance chart successfully created');
+                canvas.setAttribute('data-chart-initialized', 'true');
+                return true;
+                
+            } catch (error) {
+                console.error('[Chart Error] Failed to create overall performance chart:', error);
+                console.error('[Chart Error] Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+                return false;
+            }
+        }
+
+        // Chart 2: Test 2 Detailed Scoring (Radar Chart)
+        function initializeTest2Chart() {
+            debugLog('Initializing Test 2 detailed scoring chart...');
+            
+            const canvas = document.getElementById('test2Chart');
+            if (!canvas) {
+                console.error('[Chart Error] Canvas element "test2Chart" not found in DOM');
+                return false;
+            }
+            debugLog('Canvas element "test2Chart" found successfully');
+
+            try {
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    console.error('[Chart Error] Could not get 2D context for test2Chart canvas');
+                    return false;
+                }
+
+                new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: [
+                            'Quantum Formalism\nSetup (10pts)', 
+                            'Interference Term\nCalculation (10pts)', 
+                            'Non-Commutativity\nExplanation (10pts)', 
+                            'Decoherence\nMechanisms (10pts)', 
+                            'Bounded Rationality\nConnection (10pts)',
+                            'Math Precision\n(5pts)',
+                            'Experimental Design\n(5pts)',
+                            'Cognitive Insights\n(5pts)'
+                        ],
+                        datasets: [{
+                            label: 'o3',
+                            data: [10, 10, 9, 10, 8, 5, 5, 4],
+                            backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            borderWidth: 3,
+                            pointBackgroundColor: 'rgba(245, 158, 11, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 5
+                        }, {
+                            label: 'GPT-5',
+                            data: [9, 9, 10, 10, 10, 4, 5, 5],
+                            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 3,
+                            pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        size: 14,
+                                        weight: 'bold'
+                                    }
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Test 2: Quantum Decision Theory - Detailed Scoring',
+                                font: {
+                                    size: 16,
+                                    weight: 'bold'
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        return context[0].label.replace('\n', ' ');
+                                    },
+                                    afterLabel: function(context) {
+                                        const maxPoints = [10, 10, 10, 10, 10, 5, 5, 5];
+                                        const score = context.raw;
+                                        const max = maxPoints[context.dataIndex];
+                                        return `Score: ${score}/${max} (${((score/max)*100).toFixed(1)}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 10,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
+                                angleLines: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
+                                pointLabels: {
+                                    font: {
+                                        size: 10,
+                                        weight: 'bold'
+                                    }
+                                },
+                                ticks: {
+                                    display: true,
+                                    stepSize: 2,
+                                    font: {
+                                        size: 10
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                debugLog('Test 2 detailed scoring chart successfully created');
+                canvas.setAttribute('data-chart-initialized', 'true');
+                return true;
+                
+            } catch (error) {
+                console.error('[Chart Error] Failed to create Test 2 chart:', error);
+                console.error('[Chart Error] Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+                return false;
+            }
+        }
+
+        // Chart 3: Performance Matrix (Radar Chart)
+        function initializeRadarChart() {
+            debugLog('Initializing performance matrix radar chart...');
+            
+            const canvas = document.getElementById('radarChart');
+            if (!canvas) {
+                console.error('[Chart Error] Canvas element "radarChart" not found in DOM');
+                return false;
+            }
+            debugLog('Canvas element "radarChart" found successfully');
+
+            try {
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    console.error('[Chart Error] Could not get 2D context for radarChart canvas');
+                    return false;
+                }
+
+                new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: [
+                            'Mathematical\nRigor',
+                            'Theoretical\nDepth', 
+                            'Innovation &\nCreativity',
+                            'Practical\nApplications', 
+                            'Clarity &\nPresentation',
+                            'Breadth of\nAnalysis',
+                            'Problem-Solving\nEfficiency',
+                            'Interdisciplinary\nIntegration'
+                        ],
+                        datasets: [{
+                            label: 'OpenAI o3',
+                            data: [5, 4, 4, 5, 4, 4, 5, 3.5],
+                            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            borderWidth: 3,
+                            pointBackgroundColor: 'rgba(245, 158, 11, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 3,
+                            pointRadius: 6
+                        }, {
+                            label: 'GPT-5',
+                            data: [5, 5, 5, 5, 5, 5, 4, 5],
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 3,
+                            pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 3,
+                            pointRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        size: 16,
+                                        weight: 'bold'
+                                    },
+                                    padding: 20,
+                                    usePointStyle: true,
+                                    pointStyle: 'circle'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Performance Matrix: Comprehensive Model Comparison',
+                                font: {
+                                    size: 18,
+                                    weight: 'bold'
+                                },
+                                padding: {
+                                    top: 10,
+                                    bottom: 30
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                titleColor: '#000',
+                                bodyColor: '#000',
+                                borderColor: '#ccc',
+                                borderWidth: 1,
+                                titleFont: {
+                                    weight: 'bold',
+                                    size: 14
+                                },
+                                bodyFont: {
+                                    size: 12
+                                },
+                                callbacks: {
+                                    title: function(context) {
+                                        return context[0].label.replace('\n', ' ');
+                                    },
+                                    afterLabel: function(context) {
+                                        const descriptions = {
+                                            'Mathematical\nRigor': 'Formal proofs, notation precision, mathematical correctness',
+                                            'Theoretical\nDepth': 'Foundational understanding, philosophical insights, advanced concepts',
+                                            'Innovation &\nCreativity': 'Novel approaches, creative examples, original constructions',
+                                            'Practical\nApplications': 'Real-world relevance, implementation insights, governance implications',
+                                            'Clarity &\nPresentation': 'Communication quality, structure, accessibility',
+                                            'Breadth of\nAnalysis': 'Comprehensive coverage, edge cases, multiple perspectives',
+                                            'Problem-Solving\nEfficiency': 'Directness, conciseness, time-to-solution',
+                                            'Interdisciplinary\nIntegration': 'Cross-field connections, broader context, synthesis'
+                                        };
+                                        return `Rating: ${context.raw}/5\n${descriptions[context.label] || ''}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                min: 0,
+                                max: 5,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)',
+                                    circular: true
+                                },
+                                angleLines: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
+                                pointLabels: {
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    },
+                                    color: 'rgba(0, 0, 0, 0.8)'
+                                },
+                                ticks: {
+                                    display: true,
+                                    stepSize: 1,
+                                    showLabelBackdrop: true,
+                                    backdropColor: 'rgba(255, 255, 255, 0.8)',
+                                    backdropPadding: 2,
+                                    font: {
+                                        size: 10,
+                                        weight: 'bold'
+                                    },
+                                    color: 'rgba(0, 0, 0, 0.7)'
+                                }
+                            }
+                        },
+                        elements: {
+                            line: {
+                                tension: 0.2
+                            }
+                        }
+                    }
+                });
+                
+                debugLog('Performance matrix radar chart successfully created');
+                canvas.setAttribute('data-chart-initialized', 'true');
+                return true;
+                
+            } catch (error) {
+                console.error('[Chart Error] Failed to create performance matrix chart:', error);
+                console.error('[Chart Error] Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+                return false;
+            }
+        }
+
+        // =============================================
+        // ROBUST INITIALIZATION WITH MULTIPLE EVENT HANDLERS AND FALLBACKS
+        // =============================================
+        
+        // Primary initialization: DOMContentLoaded with safe retry logic
+        document.addEventListener('DOMContentLoaded', function() {
+            debugLog('DOM Content Loaded event fired - starting safe chart initialization');
+            safeChartInitialization();
+        });
+
+        // Backup initialization: window.load event as fallback
+        window.addEventListener('load', function() {
+            debugLog('Window Load event fired - checking chart initialization status');
+            
+            // Check if charts are already initialized
+            const chartsInitialized = ['overallChart', 'test2Chart', 'radarChart'].every(id => {
+                const canvas = document.getElementById(id);
+                return canvas && canvas.hasAttribute('data-chart-initialized');
+            });
+            
+            if (!chartsInitialized) {
+                debugLog('Charts not yet initialized, attempting backup initialization');
+                chartInitializationAttempts = 0; // Reset counter for backup attempt
+                setTimeout(safeChartInitialization, 100);
+            } else {
+                debugLog('All charts already initialized successfully, skipping backup initialization');
+            }
+        });
+
+        // Emergency fallback: Try one more time after a longer delay
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const chartsStillFailed = ['overallChart', 'test2Chart', 'radarChart'].some(id => {
+                    const canvas = document.getElementById(id);
+                    return canvas && !canvas.hasAttribute('data-chart-initialized');
+                });
+                
+                if (chartsStillFailed) {
+                    debugLog('Some charts still failed after all attempts - adding fallback content');
+                    addFallbackContent();
+                }
+            }, 2000);
+        });
+
+        // Animate progress bars when they come into view
+        const observerOptions = {
+            threshold: 0.5,
+            rootMargin: '0px 0px -100px 0px'
+        };
+
+        const progressObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const progressFills = entry.target.querySelectorAll('.progress-fill');
+                    progressFills.forEach(fill => {
+                        const width = fill.style.width;
+                        fill.style.width = '0%';
+                        setTimeout(() => {
+                            fill.style.width = width;
+                        }, 200);
+                    });
+                    progressObserver.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        // Observe all progress containers
+        document.querySelectorAll('.progress-container').forEach(container => {
+            progressObserver.observe(container);
+        });
+
+        // Add fade-in animation to elements when they come into view
+        const fadeObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Apply fade-in to cards and sections
+        document.querySelectorAll('.fade-in-up').forEach(element => {
+            element.style.opacity = '0';
+            element.style.transform = 'translateY(30px)';
+            element.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
+            fadeObserver.observe(element);
+        });
+    </script>
+</body>
+</html>
