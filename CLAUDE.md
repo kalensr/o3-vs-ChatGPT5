@@ -22,13 +22,23 @@ This repository contains a comprehensive evaluation framework for testing advanc
 Zen-o3-vs-ChatGPT5/
 ├── README.md                           # Project documentation and usage guide
 ├── CLAUDE.md                          # Claude Code specific instructions
-├── summary-comparison.md              # Executive summary and comparative analysis
-├── test-1-basic-hanging-paradox.md   # Epistemic logic test (Basic)
-├── test-2-intermediate-quantum-decision.md # Quantum decision theory (Intermediate)  
-├── test-3-advanced-hypercomputation.md     # Hypercomputation theory (Advanced)
 ├── phd-level-reasoning-test-results.html   # Interactive HTML report
-├── test-chart-fix.html                # Chart debugging version
-└── *.png                              # Screenshot documentation
+├── index.html                         # GitHub Pages landing page
+├── 404.html                           # Custom error page
+├── .nojekyll                          # Disable Jekyll processing
+├── docs/                              # Documentation files
+│   ├── summary-comparison.md          # Executive summary and comparative analysis
+│   ├── test-1-basic-hanging-paradox.md # Epistemic logic test (Basic)
+│   ├── test-2-intermediate-quantum-decision.md # Quantum decision theory (Intermediate)  
+│   └── test-3-advanced-hypercomputation.md     # Hypercomputation theory (Advanced)
+├── assets/                            # Static assets
+│   └── images/                        # Image files
+│       ├── no-charts.png              # Chart fallback screenshot
+│       ├── perf_matrix.png            # Performance matrix visualization
+│       ├── test-detail-scoring.png    # Detailed scoring breakdown
+│       └── test-perf.png              # Overall performance chart
+└── dev/                               # Development files
+    └── test-chart-fix.html            # Chart debugging version
 ```
 
 ## Test Methodology

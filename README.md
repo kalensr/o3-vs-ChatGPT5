@@ -33,13 +33,23 @@ This repository contains a rigorous comparative analysis of two state-of-the-art
 📁 Zen-o3-vs-ChatGPT5/
 ├── 📋 README.md                              # This file - project overview
 ├── ⚙️ CLAUDE.md                             # Claude Code specific instructions  
-├── 📊 summary-comparison.md                  # Executive summary & analysis
-├── 📝 test-1-basic-hanging-paradox.md      # Test 1: Epistemic logic
-├── 📝 test-2-intermediate-quantum-decision.md # Test 2: Quantum decision theory
-├── 📝 test-3-advanced-hypercomputation.md   # Test 3: Hypercomputation theory
 ├── 🌐 phd-level-reasoning-test-results.html # Interactive visualization report
-├── 🔧 test-chart-fix.html                   # Chart debugging version
-└── 📷 *.png                                 # Screenshot documentation
+├── 🏠 index.html                            # GitHub Pages landing page
+├── 🚫 404.html                              # Custom error page
+├── 🛑 .nojekyll                             # Disable Jekyll processing
+├── 📁 docs/                                 # Documentation files
+│   ├── 📊 summary-comparison.md             # Executive summary & analysis
+│   ├── 📝 test-1-basic-hanging-paradox.md  # Test 1: Epistemic logic
+│   ├── 📝 test-2-intermediate-quantum-decision.md # Test 2: Quantum decision theory
+│   └── 📝 test-3-advanced-hypercomputation.md     # Test 3: Hypercomputation theory
+├── 📁 assets/                               # Static assets
+│   └── 📁 images/                           # Image files
+│       ├── 📷 no-charts.png                 # Chart fallback screenshot
+│       ├── 📷 perf_matrix.png               # Performance matrix visualization
+│       ├── 📷 test-detail-scoring.png       # Detailed scoring breakdown
+│       └── 📷 test-perf.png                 # Overall performance chart
+└── 📁 dev/                                  # Development files
+    └── 🔧 test-chart-fix.html               # Chart debugging version
 ```
 
 ## 🧪 Test Methodology
